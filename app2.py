@@ -15,6 +15,9 @@ from flask_cors import CORS
 from flask_mail import Mail, Message
 import uuid
 
+app = Flask(__name__)
+
+
 app.config.update(
     MAIL_SERVER='smtp.gmail.com',
     MAIL_PORT=587,
@@ -27,7 +30,6 @@ app.config.update(
 mail = Mail(app)
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
-app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "https://clearbuypicks.onrender.com"}})
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'mijngeheim123')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
