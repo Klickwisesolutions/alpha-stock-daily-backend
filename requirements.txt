@@ -3,3 +3,4 @@ Flask-SQLAlchemy
 Flask-Admin
 WTForms
 Werkzeug
+flask_cors
