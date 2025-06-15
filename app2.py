@@ -15,6 +15,8 @@ from flask_cors import CORS
 from flask_mail import Mail, Message
 import uuid
 
+from itsdangerous import URLSafeTimedSerializer
+
 app = Flask(__name__)
 
 
@@ -37,8 +39,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-from flask_mail import Mail, Message
-from itsdangerous import URLSafeTimedSerializer
+
 
 
 
