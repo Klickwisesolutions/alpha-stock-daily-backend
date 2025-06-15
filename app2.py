@@ -12,6 +12,20 @@ from wtforms.widgets import TextInput
 
 from flask_cors import CORS
 
+from flask_mail import Mail, Message
+import uuid
+
+app.config.update(
+    MAIL_SERVER='smtp.gmail.com',
+    MAIL_PORT=587,
+    MAIL_USE_TLS=True,
+    MAIL_USERNAME='infoquovadis@gmail.com',
+    MAIL_PASSWORD='asym udsz lyqt paiw'
+)
+
+
+mail = Mail(app)
+serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "https://clearbuypicks.onrender.com"}})
@@ -20,6 +34,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
+
 
 
 class User(db.Model):
@@ -88,6 +106,56 @@ def register():
 @app.route('/')
 def home():
     return "API is running"
+
+@app.route('/api/forgot-password', methods=['POST'])
+def forgot_password():
+    data = request.get_json()
+    email = data.get('email')
+
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        # Geef geen info of mail bestaat of niet
+        return jsonify({"message": "If this email exists, a reset link will be sent"}), 200
+
+    reset_token = serializer.dumps(email, salt='password-reset-salt')
+
+    reset_link = f"https://jouwdomein.com/reset-password?token={reset_token}"
+
+    msg = Message("Password Reset Request",
+                  sender=app.config['MAIL_USERNAME'],
+                  recipients=[email])
+    msg.body = f"Klik op deze link om je wachtwoord te resetten: {reset_link}"
+    mail.send(msg)
+
+    return jsonify({"message": "If this email exists, a reset link will be sent"}), 200
+
+@app.route('/api/reset-password', methods=['POST'])
+def reset_password():
+    data = request.get_json()
+    token = data.get('token')
+    new_password = data.get('password')
+
+    if not token or not new_password:
+        return jsonify({"error": "Token and new password are required"}), 400
+
+    try:
+        email = serializer.loads(token, salt='password-reset-salt', max_age=3600)  # 1 uur geldig
+    except Exception:
+        return jsonify({"error": "Invalid or expired token"}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    user.set_password(new_password)
+    db.session.commit()
+
+    return jsonify({"message": "Password has been reset successfully"}), 200
+
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
