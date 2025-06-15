@@ -132,7 +132,7 @@ def forgot_password():
 
     reset_token = serializer.dumps(email, salt='password-reset-salt')
 
-    reset_link = f"https://jouwdomein.com/reset-password?token={reset_token}"  # Pas aan naar frontend URL
+    reset_link = f"https://clearbuypicks.onrender.com/reset-password?token={reset_token}"  # Pas aan naar frontend URL
 
     msg = Message("Password Reset Request",
                   sender=app.config['MAIL_USERNAME'],
