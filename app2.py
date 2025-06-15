@@ -40,7 +40,11 @@ serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 # CORS
 CORS(app, resources={r"/api/*": {"origins": "https://clearbuypicks.onrender.com"}})
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+    'DATABASE_URL',
+    'sqlite:///data.db'  # fallback voor lokaal testen
+)
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
