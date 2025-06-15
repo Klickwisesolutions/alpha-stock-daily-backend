@@ -19,7 +19,10 @@ from itsdangerous import URLSafeTimedSerializer
 
 app = Flask(__name__)
 
+# Eerst SECRET_KEY instellen, anders is die None bij serializer
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'mijngeheim123')
 
+# Mailconfiguratie
 app.config.update(
     MAIL_SERVER='smtp.gmail.com',
     MAIL_PORT=587,
@@ -28,19 +31,18 @@ app.config.update(
     MAIL_PASSWORD='asym udsz lyqt paiw'
 )
 
-
 mail = Mail(app)
+
+# Nu pas serializer aanmaken met geldige SECRET_KEY
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
+# CORS
 CORS(app, resources={r"/api/*": {"origins": "https://clearbuypicks.onrender.com"}})
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'mijngeheim123')
+
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
-
-
-
 
 
 class User(db.Model):
@@ -56,17 +58,19 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+
 with app.app_context():
     db.create_all()
 
-# Maak een zichtbaar wachtwoordveld (geen sterretjes)
+
 class VisiblePasswordField(PasswordField):
     widget = TextInput()
 
-# Custom WTForms formulier voor User admin
+
 class UserForm(Form):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = VisiblePasswordField('Password', validators=[DataRequired()])
+
 
 class UserAdmin(ModelView):
     form = UserForm
@@ -77,6 +81,7 @@ class UserAdmin(ModelView):
             model.set_password(form.password.data)
 
     column_list = ('email', 'created_at')
+
 
 admin = Admin(app, name='Admin Panel', template_mode='bootstrap4')
 admin.add_view(UserAdmin(User, db.session))
@@ -106,9 +111,11 @@ def register():
 
     return jsonify({"message": "User registered successfully"}), 201
 
+
 @app.route('/')
 def home():
     return "API is running"
+
 
 @app.route('/api/forgot-password', methods=['POST'])
 def forgot_password():
@@ -120,12 +127,12 @@ def forgot_password():
 
     user = User.query.filter_by(email=email).first()
     if not user:
-        # Geef geen info of mail bestaat of niet
+        # Veiligheid: geen info of mail bestaat
         return jsonify({"message": "If this email exists, a reset link will be sent"}), 200
 
     reset_token = serializer.dumps(email, salt='password-reset-salt')
 
-    reset_link = f"https://jouwdomein.com/reset-password?token={reset_token}"
+    reset_link = f"https://jouwdomein.com/reset-password?token={reset_token}"  # Pas aan naar frontend URL
 
     msg = Message("Password Reset Request",
                   sender=app.config['MAIL_USERNAME'],
@@ -134,6 +141,7 @@ def forgot_password():
     mail.send(msg)
 
     return jsonify({"message": "If this email exists, a reset link will be sent"}), 200
+
 
 @app.route('/api/reset-password', methods=['POST'])
 def reset_password():
@@ -145,7 +153,7 @@ def reset_password():
         return jsonify({"error": "Token and new password are required"}), 400
 
     try:
-        email = serializer.loads(token, salt='password-reset-salt', max_age=3600)  # 1 uur geldig
+        email = serializer.loads(token, salt='password-reset-salt', max_age=3600)  # Token 1 uur geldig
     except Exception:
         return jsonify({"error": "Invalid or expired token"}), 400
 
@@ -157,7 +165,6 @@ def reset_password():
     db.session.commit()
 
     return jsonify({"message": "Password has been reset successfully"}), 200
-
 
 
 if __name__ == '__main__':
