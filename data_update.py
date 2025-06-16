@@ -106,7 +106,7 @@ else:
 try:
     stuur_email_dashboard(
         df=df_result,
-        dashboard_url="https://your-deployed-dashboard-url",  # Pas aan
+        dashboard_url="https://dashboardstocks-2.onrender.com",  # Pas aan
         ontvanger_email="davy.janssens@uhasselt.be",
         afzender_email="infoquovadis@gmail.com",
         smtp_server="smtp.gmail.com",
