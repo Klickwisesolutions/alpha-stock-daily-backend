@@ -118,7 +118,7 @@ alle_emails = []
 try:
     conn = psycopg2.connect(os.environ["DATABASE_URL"], sslmode="require")
     cur = conn.cursor()
-    cur.execute("SELECT email FROM user")
+    cur.execute('"SELECT email FROM "user"')
     rows = cur.fetchall()
     alle_emails = [row[0] for row in rows if row[0]]
     cur.close()
