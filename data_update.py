@@ -5,18 +5,22 @@ import time
 import logging
 import shutil
 from datetime import datetime, timedelta
-from emailer import stuur_email_dashboard  # Zorg dat deze module werkt op Render
+from emailer import stuur_email_dashboard
+from dotenv import load_dotenv
+import psycopg2
 
-# Gebruik relatieve paden zodat het ook op Render werkt
+# .env laden (voor SMTP en DATABASE_URL)
+load_dotenv()
+
+# Setup
 basepad = os.path.dirname(os.path.abspath(__file__))
 bestand_input = os.path.join(basepad, "lijst_adr_nasdaq.csv")
 bestand_output = os.path.join(basepad, "adr_debug_results.csv")
-
 vandaag = datetime.today().strftime("%Y-%m-%d")
 gisteren = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
 bestand_gisteren = os.path.join(basepad, f"adr_debug_results_{gisteren}.csv")
 
-# Logging setup
+# Logging
 logfile = os.path.join(basepad, f"log_adr_{vandaag}.txt")
 logging.basicConfig(
     level=logging.INFO,
@@ -24,13 +28,13 @@ logging.basicConfig(
     handlers=[logging.FileHandler(logfile, encoding='utf-8'), logging.StreamHandler()]
 )
 
-# Backup oude resultaten
+# Backup
 if os.path.exists(bestand_output):
     backuppad = os.path.join(basepad, f"adr_debug_results_{vandaag}.csv")
     shutil.copyfile(bestand_output, backuppad)
     logging.info(f"📂 Vorige resultaten opgeslagen als: {backuppad}")
 
-# Lees input CSV
+# Inlezen input
 try:
     df = pd.read_csv(bestand_input)
 except Exception as e:
@@ -44,6 +48,7 @@ if 'ticker' not in df.columns:
 tickers = df['ticker'].dropna().unique().tolist()
 logging.info(f"📊 Aantal tickers gevonden: {len(tickers)}")
 
+# Analyse
 results = []
 for ticker in tickers:
     ticker = str(ticker).strip().upper()
@@ -78,13 +83,19 @@ for ticker in tickers:
 
     time.sleep(1.5)
 
-# Resultaten opslaan
+# Opslaan resultaten
 df_result = pd.DataFrame(results)
 if not df_result.empty:
     df_result.to_csv(bestand_output, index=False)
     logging.info(f"✅ Analyse voltooid. CSV opgeslagen op: {bestand_output}")
 else:
     logging.warning("⚠️ Geen resultaten die aan de criteria voldeden.")
+    if os.path.exists(bestand_output):
+        try:
+            os.remove(bestand_output)
+            logging.info("🗑️ Oud CSV-bestand verwijderd omdat geen nieuwe resultaten beschikbaar waren.")
+        except Exception as e:
+            logging.error(f"❌ Fout bij verwijderen oud CSV-bestand: {e}", exc_info=True)
 
 # Vergelijk met gisteren
 if os.path.exists(bestand_gisteren):
@@ -102,7 +113,21 @@ if os.path.exists(bestand_gisteren):
 else:
     logging.warning("⚠️ Geen bestand van gisteren gevonden voor vergelijking.")
 
-# E-mail versturen (pas wachtwoord en instellingen aan voor productie!)
+# Ophalen e-mails
+alle_emails = []
+try:
+    conn = psycopg2.connect(os.environ["DATABASE_URL"], sslmode="require")
+    cur = conn.cursor()
+    cur.execute("SELECT email FROM users")
+    rows = cur.fetchall()
+    alle_emails = [row[0] for row in rows if row[0]]
+    cur.close()
+    conn.close()
+    logging.info(f"📧 Aantal gebruikers gevonden: {len(alle_emails)}")
+except Exception as e:
+    logging.error("❌ Fout bij ophalen van e-mailadressen uit de database.", exc_info=True)
+
+# E-mail versturen
 try:
     stuur_email_dashboard(
         df=df_result,
