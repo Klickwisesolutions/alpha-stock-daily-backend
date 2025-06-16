@@ -11,15 +11,12 @@ from wtforms.validators import DataRequired, Email
 from wtforms.widgets import TextInput
 
 from flask_cors import CORS
-
 from flask_mail import Mail, Message
-import uuid
-
 from itsdangerous import URLSafeTimedSerializer
 
 app = Flask(__name__)
 
-# Zet secret key direct na app aanmaak (voor sessies en serializer)
+# Secret key voor sessies en serializer
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'mijngeheim123')
 app.secret_key = app.config['SECRET_KEY']
 
@@ -31,20 +28,20 @@ app.config.update(
     MAIL_USERNAME='infoquovadis@gmail.com',
     MAIL_PASSWORD='asym udsz lyqt paiw'
 )
-
 mail = Mail(app)
 
-# Nu pas serializer aanmaken met geldige SECRET_KEY
+# Token serializer
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 # CORS
 CORS(app, resources={r"/api/*": {"origins": "https://clearbuypicks.onrender.com"}})
 
+# Databaseconfiguratie
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 db = SQLAlchemy(app)
 
+# User-model
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -58,17 +55,11 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+# Database initialisatie
 with app.app_context():
     db.create_all()
 
-    # Probeer kolomtype aan te passen als het nog te klein is
-    from sqlalchemy import text
-    try:
-        db.session.execute(text('ALTER TABLE "user" ALTER COLUMN password_hash TYPE TEXT'))
-        db.session.commit()
-    except Exception as e:
-        print(f"Kolomwijziging niet nodig of al uitgevoerd: {e}")
-
+# Admin interface (wachtwoord zichtbaar maken in formulier)
 class VisiblePasswordField(PasswordField):
     widget = TextInput()
 
@@ -76,6 +67,7 @@ class UserForm(Form):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = VisiblePasswordField('Password', validators=[DataRequired()])
 
+# Admin-instellingen
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
@@ -89,13 +81,13 @@ class MyAdminIndexView(AdminIndexView):
 class MyModelView(ModelView):
     def is_accessible(self):
         return session.get('admin_logged_in')
-
     def inaccessible_callback(self, name, **kwargs):
         return redirect(url_for('admin_login'))
 
 admin = Admin(app, name='Admin Panel', template_mode='bootstrap4', index_view=MyAdminIndexView())
 admin.add_view(MyModelView(User, db.session))
 
+# Admin login
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
@@ -104,8 +96,7 @@ def admin_login():
         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             session['admin_logged_in'] = True
             return redirect(url_for('admin.index'))
-        else:
-            return "Invalid credentials", 401
+        return "Invalid credentials", 401
     return '''
     <form method="post">
       <input name="username" placeholder="Username" required>
@@ -119,6 +110,7 @@ def admin_logout():
     session.pop('admin_logged_in', None)
     return redirect(url_for('admin_login'))
 
+# API: registratie
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -147,6 +139,7 @@ def register():
 def home():
     return "API is running"
 
+# API: wachtwoord vergeten
 @app.route('/api/forgot-password', methods=['POST'])
 def forgot_password():
     data = request.get_json()
@@ -170,6 +163,7 @@ def forgot_password():
 
     return jsonify({"message": "If this email exists, a reset link will be sent"}), 200
 
+# API: wachtwoord resetten
 @app.route('/api/reset-password', methods=['POST'])
 def reset_password():
     data = request.get_json()
