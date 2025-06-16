@@ -85,6 +85,14 @@ if not df_result.empty:
     logging.info(f"✅ Analyse voltooid. CSV opgeslagen op: {bestand_output}")
 else:
     logging.warning("⚠️ Geen resultaten die aan de criteria voldeden.")
+    # Verwijder eventueel oud CSV-bestand om verwarring te vermijden
+    if os.path.exists(bestand_output):
+        try:
+            os.remove(bestand_output)
+            logging.info("🗑️ Oud CSV-bestand verwijderd omdat geen nieuwe resultaten beschikbaar waren.")
+        except Exception as e:
+            logging.error(f"❌ Fout bij verwijderen oud CSV-bestand: {e}", exc_info=True)
+
 
 # Vergelijk met gisteren
 if os.path.exists(bestand_gisteren):
