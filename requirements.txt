@@ -10,3 +10,4 @@ pandas
 dotenv
 yfinance
 email-validator
+emailer
