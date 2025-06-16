@@ -9,7 +9,7 @@ from emailer import stuur_email_dashboard
 from dotenv import load_dotenv
 import psycopg2
 
-# .env laden (voor SMTP en DATABASE_URL)
+# .env laden
 load_dotenv()
 
 # Setup
@@ -113,12 +113,12 @@ if os.path.exists(bestand_gisteren):
 else:
     logging.warning("⚠️ Geen bestand van gisteren gevonden voor vergelijking.")
 
-# Ophalen e-mails
+# Ophalen e-mailadressen uit de database
 alle_emails = []
 try:
     conn = psycopg2.connect(os.environ["DATABASE_URL"], sslmode="require")
     cur = conn.cursor()
-    cur.execute('SELECT email FROM "user"')
+    cur.execute('SELECT email FROM "user"')  # let op: "user" met aanhalingstekens
     rows = cur.fetchall()
     alle_emails = [row[0] for row in rows if row[0]]
     cur.close()
