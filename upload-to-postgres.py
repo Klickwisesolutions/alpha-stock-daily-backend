@@ -3,46 +3,60 @@ import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
 
-# Laad lokale .env-variabelen (alleen nuttig bij lokaal testen)
+# Laad omgevingsvariabelen
 load_dotenv()
 
-# 📄 CSV-bestand pad
-csv_path = "adr_nasdaq_debug_results.csv"  # Zorg dat dit bestand in dezelfde map staat
+# Laad CSV-resultaten
+bestand_output = os.path.join(os.path.dirname(os.path.abspath(__file__)), "adr_debug_results.csv")
 
-# CSV inlezen
-df = pd.read_csv(csv_path)
+try:
+    df = pd.read_csv(bestand_output)
+except Exception as e:
+    print(f"❌ Fout bij inlezen CSV: {e}")
+    exit()
 
-# Kolommen mappen
-df.columns = [
-    "ticker", "name", "recommendation", "current_price",
-    "target_price", "upside_percent", "analyst_opinions"
-]
-df["rec_order"] = df["recommendation"].map({
-    "strong_buy": 1,
-    "buy": 2
-}).fillna(3).astype(int)
+# Maak verbinding met de PostgreSQL database
+try:
+    conn = psycopg2.connect(
+        host=os.getenv("DB_HOST"),
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        port=os.getenv("DB_PORT"),
+    )
+    cur = conn.cursor()
 
-# PostgreSQL-verbinding
-conn = psycopg2.connect(
-    dbname=os.getenv("DB_NAME", "mydata_qhtb"),
-    user=os.getenv("DB_USER", "mydata_qhtb_user"),
-    password=os.getenv("DB_PASS"),
-    host=os.getenv("DB_HOST"),
-    port="5432"
-)
+    # Verwijder eerst alle oude rijen uit de tabel
+    cur.execute("DELETE FROM adr_results")
+    conn.commit()
 
-# Gegevens uploaden
-cur = conn.cursor()
-cur.execute("DELETE FROM adr_results;")
-for _, row in df.iterrows():
-    cur.execute("""
-        INSERT INTO adr_results 
-        (ticker, name, recommendation, current_price, target_price, 
-         upside_percent, analyst_opinions, rec_order)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    """, tuple(row))
-conn.commit()
-cur.close()
-conn.close()
+    # Voeg nieuwe rijen toe
+    for _, row in df.iterrows():
+        cur.execute(
+            """
+            INSERT INTO adr_results 
+            (ticker, name, recommendation, current_price, target_price, upside_percent, analyst_opinions)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                row["Ticker"],
+                row["Name"],
+                row["Recommendation"],
+                row["Current Price"],
+                row["Target Price"],
+                row["Upside (%)"],
+                row["Analyst Opinions"],
+            )
+        )
+    
+    conn.commit()
+    print("✅ Data succesvol geüpload naar PostgreSQL.")
 
-print("✅ Data succesvol geüpload naar PostgreSQL.")
+except Exception as e:
+    print(f"❌ Fout bij verbinden of uploaden naar database: {e}")
+
+finally:
+    if 'cur' in locals():
+        cur.close()
+    if 'conn' in locals():
+        conn.close()
