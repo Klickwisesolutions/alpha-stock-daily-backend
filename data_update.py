@@ -110,18 +110,38 @@ if os.path.exists(bestand_gisteren):
 else:
     logging.warning("⚠️ Geen bestand van gisteren gevonden voor vergelijking.")
 
+
+import psycopg2
+
+# Ophalen van e-mails uit de gebruikers-tabel
+try:
+    conn = psycopg2.connect(os.environ["DATABASE_URL"], sslmode="require")
+    cur = conn.cursor()
+    cur.execute("SELECT email FROM users")  # Zorg dat 'users' en 'email' correct zijn
+    rows = cur.fetchall()
+    alle_emails = [row[0] for row in rows if row[0]]
+    cur.close()
+    conn.close()
+    logging.info(f"📧 Aantal gebruikers gevonden: {len(alle_emails)}")
+except Exception as e:
+    logging.error("❌ Fout bij ophalen van e-mailadressen uit de database.", exc_info=True)
+    alle_emails = []
+
+from dotenv import load_dotenv
+load_dotenv()
+
 # E-mail versturen (pas wachtwoord en instellingen aan voor productie!)
 try:
-    stuur_email_dashboard(
-        df=df_result,
-        dashboard_url="https://dashboardstocks-2.onrender.com",  # Pas aan
-        ontvanger_email="davy.janssens@uhasselt.be",
-        afzender_email="infoquovadis@gmail.com",
-        smtp_server="smtp.gmail.com",
-        smtp_port=465,
-        smtp_user="infoquovadis@gmail.com",
-        smtp_pass="YOUR_APP_PASSWORD"
-    )
+   stuur_email_dashboard(
+    df=df_result,
+    dashboard_url="https://dashboardstocks-2.onrender.com",
+    ontvanger_emails=alle_emails,
+    afzender_email=os.getenv("SENDER_EMAIL"),
+    smtp_server=os.getenv("SMTP_SERVER"),
+    smtp_port=int(os.getenv("SMTP_PORT")),
+    smtp_user=os.getenv("SMTP_USER"),
+    smtp_pass=os.getenv("SMTP_PASS")
+)
     logging.info("📩 E-mail verzonden.")
 except Exception as e:
     logging.error(f"❌ Fout bij verzenden e-mail: {e}", exc_info=True)

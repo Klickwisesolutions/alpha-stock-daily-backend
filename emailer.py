@@ -13,14 +13,9 @@ from email.utils import formataddr
 from datetime import datetime
 import pandas as pd
 
-def stuur_email_dashboard(df, dashboard_url, ontvanger_email, afzender_email, smtp_server, smtp_port, smtp_user, smtp_pass):
+def stuur_email_dashboard(df, dashboard_url, ontvanger_emails, afzender_email, smtp_server, smtp_port, smtp_user, smtp_pass):
     datum = datetime.today().strftime("%Y-%m-%d")
     onderwerp = f"📈 ADR Dashboard – Samenvatting {datum}"
-
-    msg = EmailMessage()
-    msg['Subject'] = onderwerp
-    msg['From'] = formataddr(("ADR Bot", afzender_email))
-    msg['To'] = ontvanger_email
 
     # ➕ Filter en sorteer topresultaten
     df_filtered = df.copy()
@@ -41,10 +36,8 @@ def stuur_email_dashboard(df, dashboard_url, ontvanger_email, afzender_email, sm
     if df_kort.empty:
         tabel_html = "<p><em>Geen aanbevelingen vandaag die aan de criteria voldoen.</em></p>"
     else:
-        # HTML-tabel
         tabel_html = df_kort.to_html(index=False, border=0, classes="adr-table")
 
-    # HTML-opmaak
     html_body = f"""
     <html>
     <head>
@@ -76,13 +69,15 @@ def stuur_email_dashboard(df, dashboard_url, ontvanger_email, afzender_email, sm
     </html>
     """
 
-    # Stel content in
-    msg.set_content("Bekijk deze e-mail in HTML.")
-    msg.add_alternative(html_body, subtype='html')
-
-    # Verstuur
+    # Verstuur naar elke ontvanger afzonderlijk
     with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
         server.login(smtp_user, smtp_pass)
-        server.send_message(msg)
-        print(f"✅ HTML-mail verzonden naar {ontvanger_email}")
-
+        for ontvanger in ontvanger_emails:
+            msg = EmailMessage()
+            msg['Subject'] = onderwerp
+            msg['From'] = formataddr(("ADR Bot", afzender_email))
+            msg['To'] = ontvanger
+            msg.set_content("Bekijk deze e-mail in HTML.")
+            msg.add_alternative(html_body, subtype='html')
+            server.send_message(msg)
+            print(f"✅ HTML-mail verzonden naar {ontvanger}")
