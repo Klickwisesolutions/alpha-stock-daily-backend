@@ -7,3 +7,4 @@ flask_cors
 Flask-mail
 psycopg2-binary
 pandas
+dotenv
