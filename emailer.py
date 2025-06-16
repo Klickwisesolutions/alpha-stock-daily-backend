@@ -2,13 +2,6 @@
 
 import smtplib
 from email.message import EmailMessage
-from datetime import datetime
-import pandas as pd
-
-# emailer.py
-
-import smtplib
-from email.message import EmailMessage
 from email.utils import formataddr
 from datetime import datetime
 import pandas as pd
@@ -17,27 +10,28 @@ def stuur_email_dashboard(df, dashboard_url, ontvanger_emails, afzender_email, s
     datum = datetime.today().strftime("%Y-%m-%d")
     onderwerp = f"📈 ADR Dashboard – Samenvatting {datum}"
 
-    # ➕ Filter en sorteer topresultaten
-    df_filtered = df.copy()
-    df_filtered['Recommendation'] = df_filtered['Recommendation'].str.lower().fillna("")
-    df_filtered['Analyst Opinions'] = pd.to_numeric(df_filtered['Analyst Opinions'], errors='coerce').fillna(0)
-    df_filtered['Upside (%)'] = pd.to_numeric(df_filtered['Upside (%)'], errors='coerce').fillna(0)
-
-    df_top = df_filtered[
-        (df_filtered['Recommendation'].isin(['strong_buy', 'buy'])) &
-        (df_filtered['Analyst Opinions'] >= 3) &
-        (df_filtered['Upside (%)'] >= 20)
-    ]
-
-    df_top = df_top.sort_values(by=['Analyst Opinions', 'Upside (%)'], ascending=[False, False])
-    kolommen = ['Ticker', 'Name', 'Recommendation', 'Upside (%)', 'Analyst Opinions']
-    df_kort = df_top[kolommen].head(10).fillna("-")
-
-    if df_kort.empty:
+    # ➕ Fallback als DataFrame leeg is of kolommen mist
+    if df.empty or not set(['Recommendation', 'Analyst Opinions', 'Upside (%)']).issubset(df.columns):
         tabel_html = "<p><em>Geen aanbevelingen vandaag die aan de criteria voldoen.</em></p>"
     else:
-        tabel_html = df_kort.to_html(index=False, border=0, classes="adr-table")
+        df_filtered = df.copy()
+        df_filtered['Recommendation'] = df_filtered['Recommendation'].str.lower().fillna("")
+        df_filtered['Analyst Opinions'] = pd.to_numeric(df_filtered['Analyst Opinions'], errors='coerce').fillna(0)
+        df_filtered['Upside (%)'] = pd.to_numeric(df_filtered['Upside (%)'], errors='coerce').fillna(0)
 
+        df_top = df_filtered[
+            (df_filtered['Recommendation'].isin(['strong_buy', 'buy'])) &
+            (df_filtered['Analyst Opinions'] >= 3) &
+            (df_filtered['Upside (%)'] >= 20)
+        ]
+
+        df_top = df_top.sort_values(by=['Analyst Opinions', 'Upside (%)'], ascending=[False, False])
+        kolommen = ['Ticker', 'Name', 'Recommendation', 'Upside (%)', 'Analyst Opinions']
+        df_kort = df_top[kolommen].head(10).fillna("-")
+
+        tabel_html = df_kort.to_html(index=False, border=0, classes="adr-table") if not df_kort.empty else "<p><em>Geen aanbevelingen vandaag die aan de criteria voldoen.</em></p>"
+
+    # HTML content
     html_body = f"""
     <html>
     <head>
@@ -69,7 +63,7 @@ def stuur_email_dashboard(df, dashboard_url, ontvanger_emails, afzender_email, s
     </html>
     """
 
-    # Verstuur naar elke ontvanger afzonderlijk
+    # Verstuur naar elke ontvanger apart
     with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
         server.login(smtp_user, smtp_pass)
         for ontvanger in ontvanger_emails:
