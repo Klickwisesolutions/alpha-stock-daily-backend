@@ -40,9 +40,7 @@ serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 # CORS
 CORS(app, resources={r"/api/*": {"origins": "https://clearbuypicks.onrender.com"}})
 
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
-    'DATABASE_URL')
-
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -63,6 +61,14 @@ class User(db.Model):
 with app.app_context():
     db.create_all()
 
+    # Probeer kolomtype aan te passen als het nog te klein is
+    from sqlalchemy import text
+    try:
+        db.session.execute(text('ALTER TABLE "user" ALTER COLUMN password_hash TYPE TEXT'))
+        db.session.commit()
+    except Exception as e:
+        print(f"Kolomwijziging niet nodig of al uitgevoerd: {e}")
+
 class VisiblePasswordField(PasswordField):
     widget = TextInput()
 
@@ -70,11 +76,9 @@ class UserForm(Form):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = VisiblePasswordField('Password', validators=[DataRequired()])
 
-# Simpele admin credentials, pas aan naar wens of beter uit environment variables
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
-# Custom AdminIndexView met login check
 class MyAdminIndexView(AdminIndexView):
     @expose('/')
     def index(self):
@@ -82,7 +86,6 @@ class MyAdminIndexView(AdminIndexView):
             return redirect(url_for('admin_login'))
         return super().index()
 
-# Custom ModelView met login check
 class MyModelView(ModelView):
     def is_accessible(self):
         return session.get('admin_logged_in')
@@ -90,7 +93,6 @@ class MyModelView(ModelView):
     def inaccessible_callback(self, name, **kwargs):
         return redirect(url_for('admin_login'))
 
-# Admin setup met beveiligde views
 admin = Admin(app, name='Admin Panel', template_mode='bootstrap4', index_view=MyAdminIndexView())
 admin.add_view(MyModelView(User, db.session))
 
@@ -158,7 +160,6 @@ def forgot_password():
         return jsonify({"message": "If this email exists, a reset link will be sent"}), 200
 
     reset_token = serializer.dumps(email, salt='password-reset-salt')
-
     reset_link = f"https://clearbuypicks.onrender.com/reset-password?token={reset_token}"
 
     msg = Message("Password Reset Request",
@@ -195,5 +196,3 @@ def reset_password():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
-
-
