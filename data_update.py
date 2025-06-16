@@ -132,7 +132,7 @@ load_dotenv()
 
 # E-mail versturen (pas wachtwoord en instellingen aan voor productie!)
 try:
-   stuur_email_dashboard(
+    stuur_email_dashboard(
     df=df_result,
     dashboard_url="https://dashboardstocks-2.onrender.com",
     ontvanger_emails=alle_emails,
